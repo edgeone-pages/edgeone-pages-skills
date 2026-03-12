@@ -3,104 +3,81 @@ name: edgeone-pages-deploy
 description: Deploy projects to EdgeOne Pages platform. Covers CLI installation, authentication (browser login and token-based), site selection (China/Global), and deployment. Load this skill when a user wants to deploy a frontend or full-stack project to EdgeOne Pages.
 metadata:
   author: edgeone
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # EdgeOne Pages Deployment Skill
 
-This skill guides how to deploy projects to the **EdgeOne Pages** platform. It applies to static frontend projects as well as full-stack projects using Edge Functions or Node Functions.
+Deploy any project to **EdgeOne Pages**. Supports static sites and full-stack projects with Edge/Node Functions.
+
+## ⛔ Critical Rules (MUST follow — never skip)
+
+1. **CLI version MUST be `1.2.9-beta.11`**. If any other version is installed, reinstall. Do NOT proceed with a wrong version.
+2. **NEVER truncate the deploy URL**. The `EDGEONE_DEPLOY_URL` includes `eo_token=` and `eo_time=` query parameters — they are required for access. Always output the **complete** URL.
+3. **MUST ask the user to choose China or Global site** before login. Never assume.
+4. **MUST auto-detect the login method** — browser login in desktop environments, token login in headless/remote/CI environments. Follow the decision table below.
+5. **After token login, MUST ask if the user wants to save the token locally** for future use.
 
 ---
 
-## Deployment Workflow Overview
+## Deployment Flow
 
-```
-Step 1: Detect and install CLI
-Step 2: Check login status
-Step 3: Login (site selection + browser login / token login)
-Step 4: Deploy
-Step 5: Output results
-```
-
----
-
-## Step 1: Detect and Install EdgeOne CLI
-
-> **⚠️ Version Requirement**: This skill currently requires **edgeone@1.2.9-beta.11** specifically. If the CLI is already installed but at a different version, it must be reinstalled at the specified version.
-
-### Check if installed
+Run these checks first, then follow the decision table:
 
 ```bash
+# Check 1: CLI installed and correct version?
 edgeone -v
+
+# Check 2: Already logged in?
+edgeone whoami
+
+# Check 3: Project already linked?
+cat edgeone.json 2>/dev/null
+
+# Check 4: Saved token exists?
+cat .edgeone/.token 2>/dev/null
 ```
 
-- If the output shows `1.2.9-beta.11` → CLI is ready, proceed to Step 2.
-- If the CLI is not found or the version is different → install (or reinstall) the specified version:
+### Decision Table
 
-### Install the required version
+| CLI version | Login status | Action |
+|-------------|-------------|--------|
+| Not installed or wrong version | — | → Go to **Install CLI** |
+| `1.2.9-beta.11` ✓ | Logged in | → Go to **Deploy** |
+| `1.2.9-beta.11` ✓ | Not logged in, has saved token | → Go to **Deploy with Token** (use saved token) |
+| `1.2.9-beta.11` ✓ | Not logged in, no saved token | → Go to **Login** |
+
+---
+
+## Install CLI
 
 ```bash
 npm install -g edgeone@1.2.9-beta.11
 ```
 
-After installation, run `edgeone -v` again to confirm it shows `1.2.9-beta.11`.
+Verify: `edgeone -v` must output `1.2.9-beta.11`. If not, retry installation.
 
 ---
 
-## Step 2: Check Login Status
+## Login
 
-> **Note**: If the user explicitly chooses to deploy with a Token (via the `-t` flag), skip Step 2 and Step 3 entirely — token-based deployment does not require prior login. Go directly to **Step 4 (Token scenario)**.
+### 1. Ask the user to choose a site
 
-```bash
-edgeone whoami
-```
-
-- If user info is returned → already logged in, skip to **Step 4**.
-- If an error or "not logged in" message appears → proceed to **Step 3**.
-
----
-
-## Step 3: Login
-
-EdgeOne Pages has two sites: **China** and **Global**. The site must be determined before login.
-
-### Step 3a: Determine Site
-
-**You must ask the user to choose a site before running the login command.**
-
-Use the IDE's selection control (`ask_followup_question`) to prompt the user:
+**You MUST ask before running any login command.** Use the IDE's selection control (`ask_followup_question`):
 
 > Choose your EdgeOne Pages site:
-> - **China** — For users in mainland China. Console: console.cloud.tencent.com
-> - **Global** — For users outside China. Console: console.intl.cloud.tencent.com
+> - **China** — For users in mainland China (console.cloud.tencent.com)
+> - **Global** — For users outside China (console.intl.cloud.tencent.com)
 
-If the selection control is unavailable (e.g., in a CLI environment), ask in plain text:
-> "Would you like to deploy to EdgeOne Pages China or Global site?"
+### 2. Detect environment and choose login method
 
-### Step 3b: Execute Login
+| Condition | Method |
+|-----------|--------|
+| Desktop with browser (`which open` or `which xdg-open` succeeds) | **Browser Login** |
+| Remote server / SSH / CI / `NO_BROWSER` | **Token Login** |
+| User explicitly requests token | **Token Login** |
 
-**The agent must automatically detect the environment and choose the appropriate login method.** Follow this decision logic:
-
-#### Environment Detection
-
-Run the following command to check if the current environment supports opening a browser:
-
-```bash
-# macOS
-which open 2>/dev/null && echo "BROWSER_AVAILABLE" || echo "NO_BROWSER"
-
-# Linux
-which xdg-open 2>/dev/null && echo "BROWSER_AVAILABLE" || echo "NO_BROWSER"
-```
-
-**Decision rules:**
-1. If the output contains `BROWSER_AVAILABLE` → use **Browser Login** (Method 1)
-2. If the output is `NO_BROWSER`, or the environment is a remote server / SSH session / CI/CD pipeline → use **Token Login** (Method 2)
-3. If the user has explicitly requested token-based deployment (e.g., via `-t` flag) → use **Token Login** regardless of environment
-
-#### Method 1: Browser Login (default when browser is available)
-
-Run the corresponding command based on the selected site:
+#### Browser Login
 
 ```bash
 # China site
@@ -110,138 +87,92 @@ edgeone login --site china
 edgeone login --site global
 ```
 
-This will automatically open a browser for the user to complete Tencent Cloud account login. The CLI will receive the login credentials automatically.
+Wait for the user to complete browser auth. The CLI prints a success message when done.
 
-**Note**: Wait for the user to complete login in the browser. The CLI will display a success message. If there is no response for an extended period, prompt the user to check whether the browser has opened the login page.
+#### Token Login
 
-#### Method 2: Token Login (fallback for headless environments or CI/CD)
+Token login does **NOT** use `edgeone login`. The token is passed directly in the deploy command via `-t`.
 
-Use token-based login when browser login is unavailable:
-- Remote server / SSH terminal (no browser available)
-- CI/CD pipeline
-- Any environment where browser login is impractical
-- User explicitly chooses token-based deployment
-
-**Token login does NOT require running `edgeone login`**. Instead, the token is passed directly via the `-t` flag in the deploy command.
-
-Guide the user to obtain an API Token:
-
-1. Direct the user to the console page based on the selected site:
+Guide the user to get a token:
+1. Go to the console:
    - **China**: https://console.cloud.tencent.com/edgeone/pages?tab=settings
    - **Global**: https://console.intl.cloud.tencent.com/edgeone/pages?tab=settings
-2. Locate the **API Token** settings section
-3. Click **Create Token**
-4. Copy the generated token
+2. Find **API Token** → **Create Token** → Copy it
 
-**Security warning**: Remind the user that the token carries account-level permissions. It should never be leaked or committed to a code repository. Once obtained, the token is used directly in the deploy command (see Step 4).
+⚠️ Remind the user: the token has account-level permissions. Never commit it to a repository.
 
-### Step 3c: Offer to Save Token Locally (Token Login only)
+### 3. Offer to save the token locally
 
-After the user provides their token, **ask the user whether they want to save the token locally** for future deployments, so they don't have to enter it every time.
-
-Use the IDE's selection control (`ask_followup_question`) to prompt:
+**After the user provides a token, MUST ask:**
 
 > Would you like to save this token locally for future deployments?
-> - **Yes** — Save to `.edgeone/.token` in the project root (will be auto-used in future deploys)
-> - **No** — Use the token for this deployment only
+> - **Yes** — Save to `.edgeone/.token` (auto-used next time)
+> - **No** — Use for this deployment only
 
-**If the user chooses Yes:**
-
-1. Create the `.edgeone/` directory in the project root if it doesn't exist:
+**If Yes:**
 
 ```bash
 mkdir -p .edgeone
-```
-
-2. Save the token to `.edgeone/.token`:
-
-```bash
 echo "<token>" > .edgeone/.token
-```
-
-3. Ensure `.edgeone/.token` is in `.gitignore` to prevent accidental commits:
-
-```bash
-# Check if .gitignore already contains the entry
 grep -q '.edgeone/.token' .gitignore 2>/dev/null || echo '.edgeone/.token' >> .gitignore
 ```
 
-4. Inform the user:
-> ✅ Token saved to `.edgeone/.token`. It will be automatically used for future deployments.
-> The file has been added to `.gitignore` to prevent accidental commits.
-
-**If the user chooses No:** Proceed directly to Step 4 with the token.
+Tell the user: "✅ Token saved to `.edgeone/.token` and added to `.gitignore`."
 
 ---
 
-## Step 4: Deploy
+## Deploy
 
-### Scenario 1: Already logged in via browser
-
-Check whether an `edgeone.json` file exists in the project root:
-
-- **`edgeone.json` exists** (project already linked):
+### Browser-authenticated deploy
 
 ```bash
+# Project already linked (edgeone.json exists)
 edgeone pages deploy
-```
 
-- **`edgeone.json` does not exist** (new project):
-
-```bash
+# New project (no edgeone.json)
 edgeone pages deploy -n <project-name>
 ```
 
-`<project-name>` should be auto-generated by the agent based on the project name or directory name. If the project does not exist on the platform, it will be created automatically.
+`<project-name>`: auto-generate from the project directory name. The first deploy creates `edgeone.json` automatically.
 
-> **Note**: After a successful first deployment with `-n`, the CLI automatically generates an `edgeone.json` file in the project root. Subsequent deployments will use this file and no longer require the `-n` flag.
+### Token-based deploy
 
-### Scenario 2: Token-based deployment
-
-**Before asking the user for a token, check if a saved token exists locally:**
+**First check for a saved token:**
 
 ```bash
 cat .edgeone/.token 2>/dev/null
 ```
 
-- If a saved token is found → use it automatically and inform the user: "Using saved token from `.edgeone/.token`"
-- If no saved token exists → ask the user to provide a token (as described in Step 3, Method 2)
-
-Token deployment does not require running `edgeone login` beforehand. Pass the token directly in the deploy command:
+- Saved token found → use it, tell the user: "Using saved token from `.edgeone/.token`"
+- No saved token → ask the user to provide one (see Token Login above)
 
 ```bash
-# Project already has edgeone.json
+# Project already linked
 edgeone pages deploy -t <token>
 
 # New project
 edgeone pages deploy -n <project-name> -t <token>
 ```
 
-> **Note**: The token is already bound to a specific site (China or Global), so there is no need to specify `--site` when deploying with a token.
+The token already contains site info — no `--site` flag needed.
 
-After a successful token-based deployment, if the token was entered manually (not loaded from `.edgeone/.token`), proceed to **Step 3c** to offer saving it for next time.
+**After a successful deploy with a manually-entered token**, ask if the user wants to save it (see "Offer to save the token locally" above).
 
-### Deployment Environment
-
-Deployments target the **production** environment by default. To deploy to a preview environment:
+### Deploy to preview environment
 
 ```bash
 edgeone pages deploy -e preview
 ```
 
-### Automatic Build Behavior
+### Build behavior
 
-- The CLI automatically detects the project framework and runs the build
-- The CLI automatically determines and uploads the build output directory (e.g., `dist`, `out`, `build`, etc.)
-- No manual specification of the build output path is needed
+The CLI auto-detects the framework, runs the build, and uploads the output directory. No manual config needed.
 
 ---
 
-## Step 5: Deployment Results
+## ⚠️ Parse Deploy Output (Critical — read carefully)
 
-After a successful deployment, the CLI outputs several key pieces of information. **You must extract the full value of `EDGEONE_DEPLOY_URL` as the access URL.**
-
-### Output Format Example
+After `edgeone pages deploy` succeeds, the CLI outputs:
 
 ```
 [cli][✔] Deploy Success
@@ -252,121 +183,91 @@ EDGEONE_PROJECT_ID=pages-xxxxxxxx
 https://console.cloud.tencent.com/edgeone/pages/project/pages-xxxxxxxx/deployment/xxxxxxx
 ```
 
-### Extraction Rules (⚠️ Critical)
+**Extraction rules:**
 
-1. **Access URL**: Find the line starting with `EDGEONE_DEPLOY_URL=` and extract the **complete URL** after `=`, including the `eo_token` and `eo_time` query parameters. **Do NOT truncate or omit these parameters** — without them, the user will be unable to access the page.
-2. **Project ID**: Extract from the `EDGEONE_PROJECT_ID=` line.
-3. **Console URL**: Extract from the line following `You can view your deployment in the EdgeOne Pages Console at:`.
+| Field | How to extract | ⛔ Warning |
+|-------|---------------|-----------|
+| **Access URL** | Full value after `EDGEONE_DEPLOY_URL=` | **MUST include `?eo_token=...&eo_time=...`** — without these params the page won't load |
+| **Project ID** | Value after `EDGEONE_PROJECT_ID=` | — |
+| **Console URL** | Line after "You can view your deployment..." | — |
 
-### Display to User
-
-Present the extracted information to the user. **The access URL must include the full `eo_token` and `eo_time` parameters**:
+**Show the user:**
 
 > ✅ Deployment complete!
 > - **Access URL**: `https://my-project-abc123.edgeone.cool?eo_token=xxxx&eo_time=yyyy`
 > - **Console URL**: `https://console.cloud.tencent.com/edgeone/pages/project/...`
 
-### Error Handling
+---
 
-If the deployment fails:
+## Error Handling
 
-1. **Build failure**: Check the build logs in the CLI output. Common causes include missing dependencies (`npm install` not run) or misconfigured build scripts in `package.json`.
-2. **Authentication failure**: Run `edgeone whoami` to verify login status. Re-login if needed, or verify the token is valid and not expired.
-3. **Network timeout**: Retry the deployment. If the issue persists, check network connectivity.
-4. **Project name conflict**: If the project name is already taken by another account, choose a different name with the `-n` flag.
+| Error | Solution |
+|-------|----------|
+| `command not found: edgeone` | `npm install -g edgeone@1.2.9-beta.11` |
+| Browser doesn't open during login | Use token login instead |
+| "not logged in" error | `edgeone whoami` to check, then re-login or use token |
+| Auth error with token | Token may be expired — regenerate at the console |
+| Project name conflict | Use a different name with `-n` |
+| Build failure | Check logs — usually missing deps or bad build script |
 
 ---
 
-## Appendix: Edge Functions / Node Functions Projects
+## Appendix
 
-If the project requires **Edge Functions** or **Node Functions** (server-side function capabilities), run initialization before deployment:
+### Edge/Node Functions
+
+For projects needing server-side functions, run before first deploy:
 
 ```bash
 edgeone pages init
 ```
 
-This command generates an `edge-functions` or `node-functions` folder with sample functions based on the guided prompts.
+Pure static projects skip this.
 
-**Pure static frontend projects do not need `init` and can be deployed directly.**
-
----
-
-## Appendix: Local Development
-
-To debug locally before deployment:
+### Local Development
 
 ```bash
-edgeone pages dev
+edgeone pages dev    # http://localhost:8088/
 ```
 
-- Runs on `http://localhost:8088/` by default
-- Frontend pages and function services share the same port
-
----
-
-## Appendix: Environment Variable Management
+### Environment Variables
 
 ```bash
-# List all environment variables
-edgeone pages env ls
-
-# Pull environment variables to a local .env file
-edgeone pages env pull
-
-# Add an environment variable
-edgeone pages env add KEY value
-
-# Remove an environment variable
-edgeone pages env rm KEY
+edgeone pages env ls          # List all
+edgeone pages env pull        # Pull to local .env
+edgeone pages env add KEY val # Add
+edgeone pages env rm KEY      # Remove
 ```
 
----
-
-## Appendix: Project Linking
-
-To use KV storage or sync console environment variables for local development, link the project first:
+### Project Linking
 
 ```bash
 edgeone pages link
 ```
 
-Follow the prompts to enter an existing Pages project name. If the project does not exist, the CLI will guide you to create a new one.
+### Token Management
 
----
+| Task | How |
+|------|-----|
+| Save token | Stored in `.edgeone/.token` (auto-added to `.gitignore`) |
+| Update token | Delete `.edgeone/.token`, then deploy again — you'll be prompted to enter and save a new one |
+| Use saved token | Automatic — the agent reads `.edgeone/.token` before each token deploy |
 
-## FAQ
-
-| Problem | Solution |
-|---------|----------|
-| `command not found: edgeone` | Run `npm install -g edgeone@1.2.9-beta.11` to install the CLI |
-| Browser does not open during login | Check default browser settings, or use token-based login instead |
-| Deployment fails with "not logged in" | Run `edgeone whoami` to check login status and re-login |
-| Unsure whether to choose China or Global | Mainland China users → China; users outside China → Global |
-| Where to get an API Token | China: console.cloud.tencent.com/edgeone/pages?tab=settings; Global: console.intl.cloud.tencent.com/edgeone/pages?tab=settings |
-| Token deployment fails with auth error | Verify the token is correct and has not expired; regenerate if needed |
-| How to update a saved token | Delete `.edgeone/.token` and deploy again — the agent will prompt you to enter and save a new token |
-| Where is the token stored | In `.edgeone/.token` in the project root; this file is auto-added to `.gitignore` |
-
----
-
-## Command Reference
+### Command Reference
 
 | Action | Command |
 |--------|---------|
 | Install CLI | `npm install -g edgeone@1.2.9-beta.11` |
 | Check version | `edgeone -v` |
-| Show help | `edgeone -h` |
 | Login (China) | `edgeone login --site china` |
 | Login (Global) | `edgeone login --site global` |
 | View login info | `edgeone whoami` |
 | Logout | `edgeone logout` |
 | Switch account | `edgeone switch` |
-| Initialize functions | `edgeone pages init` |
-| Local development | `edgeone pages dev` |
+| Init functions | `edgeone pages init` |
+| Local dev | `edgeone pages dev` |
 | Link project | `edgeone pages link` |
 | Deploy | `edgeone pages deploy` |
-| Deploy to new project | `edgeone pages deploy -n <name>` |
-| Deploy to preview env | `edgeone pages deploy -e preview` |
+| Deploy new project | `edgeone pages deploy -n <name>` |
+| Deploy preview | `edgeone pages deploy -e preview` |
 | Deploy with token | `edgeone pages deploy -t <token>` |
-| List env variables | `edgeone pages env ls` |
-| Pull env variables | `edgeone pages env pull` |
