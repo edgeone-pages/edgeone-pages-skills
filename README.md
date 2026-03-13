@@ -62,7 +62,7 @@ Each skill contains:
 
 - **Node.js** ≥ 16
 - **npm** (for CLI installation)
-- A [Tencent Cloud](https://cloud.tencent.com/) account (China site) or [Tencent Cloud International](https://intl.cloud.tencent.com/) account (Global site)
+- A [Tencent Cloud](https://console.cloud.tencent.com/edgeone/pages) account (China site) or [Tencent Cloud International](https://pages.edgeone.ai/) account (Global site)
 
 ## License
 
