@@ -1,14 +1,32 @@
 # EdgeOne Pages Skills
 
-Official [Agent Skills](https://github.com/anthropics/agent-skills) for deploying projects to [EdgeOne Pages](https://edgeone.ai/products/pages).
+Official Agent Skills for deploying projects to [EdgeOne Pages](https://edgeone.ai/products/pages).
 
 ## Installation
 
 ```bash
-npx skills add user/edgeone-pages-skill
+npx skills add edgeone-pages/edgeone-pages-skill
 ```
 
 After installation, your AI coding agent will automatically detect when you want to deploy and use the appropriate skill.
+
+## Usage
+
+Skills are automatically available once installed. The agent will use them when relevant tasks are detected.
+
+**Examples:**
+
+```
+Deploy my project to EdgeOne Pages
+```
+
+```
+Publish this React app to EdgeOne Pages China site
+```
+
+```
+Deploy this Next.js project and give me the preview URL
+```
 
 ## Available Skills
 
@@ -45,12 +63,6 @@ Each skill contains:
 - **Node.js** ≥ 16
 - **npm** (for CLI installation)
 - A [Tencent Cloud](https://cloud.tencent.com/) account (China site) or [Tencent Cloud International](https://intl.cloud.tencent.com/) account (Global site)
-
-## Links
-
-- [EdgeOne Pages Documentation](https://edgeone.ai/document/pages)
-- [EdgeOne Pages Console (China)](https://console.cloud.tencent.com/edgeone/pages)
-- [EdgeOne Pages Console (Global)](https://console.intl.cloud.tencent.com/edgeone/pages)
 
 ## License
 
