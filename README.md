@@ -45,7 +45,7 @@ Deploy frontend or full-stack projects to EdgeOne Pages with a single command.
 
 **Supported project types**:
 - Static frontend projects (HTML, React, Vue, Next.js, etc.)
-- Full-stack projects with Edge Functions or Node Functions
+- Full-stack projects with Cloud Functions
 
 ## Skill Structure
 
@@ -62,7 +62,9 @@ Each skill contains:
 
 - **Node.js** ≥ 16
 - **npm** (for CLI installation)
-- A [Tencent Cloud](https://console.cloud.tencent.com/edgeone/pages) account (China site) or [Tencent Cloud International](https://pages.edgeone.ai/) account (Global site)
+- An EdgeOne Pages account
+
+  [China site](https://console.cloud.tencent.com/edgeone/pages) | [Global site](https://pages.edgeone.ai)
 
 ## License
 
