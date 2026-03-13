@@ -43,10 +43,6 @@ Deploy frontend or full-stack projects to EdgeOne Pages with a single command.
 - Deploys with automatic framework detection and build
 - Returns the live preview URL and console link
 
-**Supported project types**:
-- Static frontend projects (HTML, React, Vue, Next.js, etc.)
-- Full-stack projects with Cloud Functions
-
 ## Skill Structure
 
 ```

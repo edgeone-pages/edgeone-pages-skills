@@ -1,6 +1,6 @@
 ---
 name: edgeone-pages-deploy
-description: Deploy projects to EdgeOne Pages platform. Covers CLI installation, authentication (browser login and token-based), site selection (China/Global), and deployment. Load this skill when a user wants to deploy a frontend or full-stack project to EdgeOne Pages.
+description: Deploy frontend and full-stack projects to EdgeOne Pages (Tencent EdgeOne). Use when the user wants to deploy, publish, ship, host, launch, or go live on EdgeOne Pages — e.g. "deploy my app", "publish this site", "push this live", "deploy and give me the link", "create a preview deployment", "deploy to EdgeOne", or "ship to production".
 metadata:
   author: edgeone
   version: "1.1.0"
@@ -8,7 +8,7 @@ metadata:
 
 # EdgeOne Pages Deployment Skill
 
-Deploy any project to **EdgeOne Pages**. Supports static sites and full-stack projects with Edge/Node Functions.
+Deploy any project to **EdgeOne Pages**.
 
 ## ⛔ Critical Rules (MUST follow — never skip)
 
